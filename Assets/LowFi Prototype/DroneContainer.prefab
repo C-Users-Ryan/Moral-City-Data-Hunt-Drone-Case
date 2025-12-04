@@ -271,7 +271,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Waypoint
   pointA: {fileID: 3491859269990628693}
   pointB: {fileID: 8113382631075190511}
-  speed: 0.1
+  speed: 0.2
 --- !u!1 &9191452848645858085
 GameObject:
   m_ObjectHideFlags: 0
