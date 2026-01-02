@@ -10,9 +10,25 @@ public class DroneMaterialChange : MonoBehaviour
     [SerializeField] private Material material1;
     [SerializeField] private Material material2;
 
-    /// <summary>
-    /// Applies Material 1 to all target objects.
-    /// </summary>
+    [Header("Debug Toggles")]
+    [SerializeField] private bool useMaterial1;
+    [SerializeField] private bool useMaterial2;
+
+    void Update()
+    {
+        if (useMaterial1)
+        {
+            SetMaterial1();
+            useMaterial1 = false;
+        }
+
+        if (useMaterial2)
+        {
+            SetMaterial2();
+            useMaterial2 = false;
+        }
+    }
+
     public void SetMaterial1()
     {
         if (material1 == null)
@@ -24,9 +40,6 @@ public class DroneMaterialChange : MonoBehaviour
         ApplyMaterial(material1);
     }
 
-    /// <summary>
-    /// Applies Material 2 to all target objects.
-    /// </summary>
     public void SetMaterial2()
     {
         if (material2 == null)
@@ -38,9 +51,6 @@ public class DroneMaterialChange : MonoBehaviour
         ApplyMaterial(material2);
     }
 
-    /// <summary>
-    /// Helper function to swap materials on all renderers.
-    /// </summary>
     private void ApplyMaterial(Material mat)
     {
         foreach (var r in targets)
