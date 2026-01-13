@@ -1,131 +1,166 @@
-using System;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class RoomZoningManager : MonoBehaviour
 {
-    [Header("References")]
-    public GameObject cornerMarkerPrefab;
-    public Transform playerHead; // OVRCameraRig -> CenterEyeAnchor
+    [Header("OVR")]
+    public Transform playerHead; // OVRCameraRig → CenterEyeAnchor
+
+    [Header("Markers")]
+    public GameObject zoneMarkerPrefab;
+    public float markerHeightOffset = 0.02f;
+
+    public Color zoneAColor = Color.blue;
+    public Color zoneBColor = Color.red;
 
     [Header("Debug")]
     public bool drawGizmos = true;
-
-    // Internal data
-    private List<Vector3> roomCorners = new List<Vector3>();
-    private Bounds zoneA;
-    private Bounds zoneB;
+    public ZoneResult debugCurrentZone;
 
     public enum ZoneResult { None, ZoneA, ZoneB }
-    public ZoneResult CurrentZone { get; private set; } = ZoneResult.None;
+    public ZoneResult CurrentZone { get; private set; }
 
-    public Action<ZoneResult> OnZoneLocked;
+    private Vector3 headsetStartWorld;
+    private bool initialized = false;
+
+    private List<Vector3> roomCornersLocal = new List<Vector3>();
+    private Bounds zoneALocal;
+    private Bounds zoneBLocal;
+
+    // -------------------------------
+    // UNITY
+    // -------------------------------
 
     void Start()
     {
-        DetectRoom();
-        CreateZones();
-        SpawnMarkers();
+        StartCoroutine(Initialize());
     }
 
     void Update()
     {
+        if (!initialized) return;
         UpdatePlayerZone();
+    }
+
+    // -------------------------------
+    // INITIALIZATION
+    // -------------------------------
+
+    IEnumerator Initialize()
+    {
+        while (!OVRManager.boundary.GetConfigured())
+            yield return null;
+
+        headsetStartWorld = playerHead.position;
+
+        DetectRoomLocal();
+        CreateZonesLocal();
+
+        SpawnZoneVisuals(zoneALocal, zoneAColor, "Zone A");
+        SpawnZoneVisuals(zoneBLocal, zoneBColor, "Zone B");
+
+        initialized = true;
     }
 
     // -------------------------------
     // ROOM DETECTION
     // -------------------------------
 
-    void DetectRoom()
+    void DetectRoomLocal()
     {
-        var boundary = new OVRBoundary();
-        Vector3[] points = boundary.GetGeometry(OVRBoundary.BoundaryType.PlayArea);
+        roomCornersLocal.Clear();
 
-        if (points == null || points.Length == 0)
-        {
-            Debug.LogError("No play area detected!");
-            return;
-        }
-
-        roomCorners.Clear();
+        Vector3[] points =
+            OVRManager.boundary.GetGeometry(OVRBoundary.BoundaryType.PlayArea);
 
         foreach (var p in points)
-        {
-            Vector3 worldPoint = transform.TransformPoint(p);
-            roomCorners.Add(worldPoint);
-        }
-
-        Debug.Log($"Detected {roomCorners.Count} room corners");
+            roomCornersLocal.Add(p);
     }
 
     // -------------------------------
     // ZONE CREATION
     // -------------------------------
 
-    void CreateZones()
+    void CreateZonesLocal()
     {
-        Bounds roomBounds = new Bounds(roomCorners[0], Vector3.zero);
+        Bounds roomBounds = new Bounds(roomCornersLocal[0], Vector3.zero);
+        foreach (var p in roomCornersLocal)
+            roomBounds.Encapsulate(p);
 
-        foreach (var corner in roomCorners)
-            roomBounds.Encapsulate(corner);
-
-        bool splitOnX = roomBounds.size.x > roomBounds.size.z;
+        bool splitOnX = roomBounds.size.x >= roomBounds.size.z;
 
         if (splitOnX)
         {
             float midX = roomBounds.center.x;
-
-            zoneA = new Bounds(
-                new Vector3(
-                    (roomBounds.min.x + midX) / 2f,
-                    roomBounds.center.y,
-                    roomBounds.center.z),
-                new Vector3(
-                    roomBounds.size.x / 2f,
-                    roomBounds.size.y,
-                    roomBounds.size.z));
-
-            zoneB = new Bounds(
-                new Vector3(
-                    (midX + roomBounds.max.x) / 2f,
-                    roomBounds.center.y,
-                    roomBounds.center.z),
-                zoneA.size);
+            zoneALocal = CreateSubBounds(roomBounds, true, roomBounds.min.x, midX);
+            zoneBLocal = CreateSubBounds(roomBounds, true, midX, roomBounds.max.x);
         }
         else
         {
             float midZ = roomBounds.center.z;
-
-            zoneA = new Bounds(
-                new Vector3(
-                    roomBounds.center.x,
-                    roomBounds.center.y,
-                    (roomBounds.min.z + midZ) / 2f),
-                new Vector3(
-                    roomBounds.size.x,
-                    roomBounds.size.y,
-                    roomBounds.size.z / 2f));
-
-            zoneB = new Bounds(
-                new Vector3(
-                    roomBounds.center.x,
-                    roomBounds.center.y,
-                    (midZ + roomBounds.max.z) / 2f),
-                zoneA.size);
+            zoneALocal = CreateSubBounds(roomBounds, false, roomBounds.min.z, midZ);
+            zoneBLocal = CreateSubBounds(roomBounds, false, midZ, roomBounds.max.z);
         }
     }
 
-    // -------------------------------
-    // VISUAL MARKERS
-    // -------------------------------
-
-    void SpawnMarkers()
+    Bounds CreateSubBounds(Bounds original, bool splitX, float min, float max)
     {
-        if (!cornerMarkerPrefab) return;
+        Vector3 center = original.center;
+        Vector3 size = original.size;
 
-        foreach (var corner in roomCorners)
-            Instantiate(cornerMarkerPrefab, corner, Quaternion.identity);
+        if (splitX)
+        {
+            center.x = (min + max) * 0.5f;
+            size.x = Mathf.Abs(max - min);
+        }
+        else
+        {
+            center.z = (min + max) * 0.5f;
+            size.z = Mathf.Abs(max - min);
+        }
+
+        return new Bounds(center, size);
+    }
+
+    // -------------------------------
+    // VISUALS
+    // -------------------------------
+
+    void SpawnZoneVisuals(Bounds zoneLocal, Color color, string label)
+    {
+        // Center marker
+        SpawnMarker(zoneLocal.center, color, $"{label} Center");
+
+        // Corner markers
+        Vector3 min = zoneLocal.min;
+        Vector3 max = zoneLocal.max;
+
+        SpawnMarker(new Vector3(min.x, 0, min.z), color, $"{label} Corner");
+        SpawnMarker(new Vector3(min.x, 0, max.z), color, $"{label} Corner");
+        SpawnMarker(new Vector3(max.x, 0, min.z), color, $"{label} Corner");
+        SpawnMarker(new Vector3(max.x, 0, max.z), color, $"{label} Corner");
+    }
+
+    void SpawnMarker(Vector3 localPos, Color color, string name)
+    {
+        Vector3 worldPos =
+            headsetStartWorld + localPos + Vector3.up * markerHeightOffset;
+
+        GameObject marker = Instantiate(
+            zoneMarkerPrefab,
+            worldPos,
+            Quaternion.identity);
+
+        marker.name = name;
+
+        var renderer = marker.GetComponentInChildren<Renderer>();
+        if (renderer)
+        {
+            renderer.material = new Material(renderer.material);
+            renderer.material.color = color;
+        }
     }
 
     // -------------------------------
@@ -134,40 +169,34 @@ public class RoomZoningManager : MonoBehaviour
 
     void UpdatePlayerZone()
     {
-        if (!playerHead) return;
+        Vector3 playerLocal = playerHead.position - headsetStartWorld;
 
-        Vector3 pos = playerHead.position;
-
-        if (zoneA.Contains(pos))
+        if (zoneALocal.Contains(playerLocal))
             CurrentZone = ZoneResult.ZoneA;
-        else if (zoneB.Contains(pos))
+        else if (zoneBLocal.Contains(playerLocal))
             CurrentZone = ZoneResult.ZoneB;
         else
             CurrentZone = ZoneResult.None;
+
+        debugCurrentZone = CurrentZone;
     }
 
     // -------------------------------
-    // FINALIZE CHOICE
-    // -------------------------------
-
-    public void LockChoice()
-    {
-        Debug.Log($"Zone locked: {CurrentZone}");
-        OnZoneLocked?.Invoke(CurrentZone);
-    }
-
-    // -------------------------------
-    // DEBUG VISUALIZATION
+    // GIZMOS
     // -------------------------------
 
     void OnDrawGizmos()
     {
-        if (!drawGizmos) return;
+        if (!drawGizmos || !initialized) return;
 
-        Gizmos.color = Color.blue;
-        Gizmos.DrawWireCube(zoneA.center, zoneA.size);
+        Gizmos.color = zoneAColor;
+        Gizmos.DrawWireCube(
+            headsetStartWorld + zoneALocal.center,
+            zoneALocal.size);
 
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireCube(zoneB.center, zoneB.size);
+        Gizmos.color = zoneBColor;
+        Gizmos.DrawWireCube(
+            headsetStartWorld + zoneBLocal.center,
+            zoneBLocal.size);
     }
 }
