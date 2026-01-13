@@ -614,6 +614,8 @@ MonoBehaviour:
   - {fileID: 1651535299}
   material1: {fileID: 2100000, guid: 47a73951b53ccf64fb5220992bcc25b6, type: 2}
   material2: {fileID: 2100000, guid: cc8abcf1332f58942b5137aad9b00e10, type: 2}
+  useMaterial1: 0
+  useMaterial2: 0
 --- !u!4 &663998593
 Transform:
   m_ObjectHideFlags: 0
