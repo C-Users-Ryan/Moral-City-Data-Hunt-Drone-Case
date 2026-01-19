@@ -1,218 +1,187 @@
 using UnityEngine;
 
-public class DodgingController : MonoBehaviour
+public class AerialEvasionController : MonoBehaviour
 {
-    [Header("Flight Area")]
-    [SerializeField] private Transform plane;
-    [SerializeField] private float flightRadius = 20f;
-    [SerializeField] private float minHeight = 3f;
-    [SerializeField] private float maxHeight = 8f;
-    [Header("Movement")]
-    [SerializeField] private float cruiseSpeed = 8f;
-    [SerializeField] private float maxSpeed = 15f;
-    [SerializeField] private float acceleration = 8f;
-    [SerializeField] private float rotationSpeed = 3f;
-    [SerializeField] private float tiltAmount = 25f;
-    [Header("Obstacle Avoidance")]
-    [SerializeField] private float detectionDistance = 5f;
-    [SerializeField] private float avoidanceForce = 8f;
-    [SerializeField] private LayerMask obstacleLayer = ~0;
-    [SerializeField] private int numRays = 8;
-    [Header("Behavior")]
-    [SerializeField] private float waypointReachDistance = 3f;
-    [SerializeField] private float newWaypointDelay = 0.5f;
-    [SerializeField] private bool aggressiveFlying = true;
-    [SerializeField] private float heightChangeFrequency = 0.7f;
-    private Rigidbody rb;
-    private Vector3 currentWaypoint;
-    private Vector3 centerPoint;
-    private float nextWaypointTime;
-    private float baseHeight;
+    [Header("Flight Zone")]
+    [SerializeField] private Transform flightAnchor;
+    [SerializeField] private float zoneRadius = 20f;
+    [SerializeField] private float minAltitude = 3f;
+    [SerializeField] private float maxAltitude = 8f;
+
+    [Header("Movement Settings")]
+    [SerializeField] private float baseSpeed = 8f;
+    [SerializeField] private float speedCap = 15f;
+    [SerializeField] private float thrustPower = 8f;
+    [SerializeField] private float turnRate = 3f;
+    [SerializeField] private float bankingAngle = 25f;
+
+    [Header("Avoidance System")]
+    [SerializeField] private float scanDistance = 5f;
+    [SerializeField] private float evadeStrength = 8f;
+    [SerializeField] private LayerMask collisionMask = ~0;
+    [SerializeField] private int rayCount = 8;
+
+    [Header("AI Behaviour")]
+    [SerializeField] private float waypointRadius = 3f;
+    [SerializeField] private float waypointCooldown = 0.5f;
+    [SerializeField] private bool isAggressive = true;
+    [SerializeField] private float altitudeVariationChance = 0.7f;
+
+    private Rigidbody droneBody;
+    private Vector3 targetPoint;
+    private Vector3 anchorPoint;
+    private float nextTargetTime;
+    private float baseAltitude;
+
     void Start()
     {
-        rb = GetComponent<Rigidbody>();
-        if (rb == null)
-        {
-            rb = gameObject.AddComponent<Rigidbody>();
-        }
-        rb.useGravity = true;
-        rb.linearDamping = 0.5f;
-        rb.angularDamping = 3f;
-        if (plane != null)
-        {
-            centerPoint = plane.position + Vector3.up * minHeight;
-        }
-        else
-        {
-            centerPoint = transform.position;
-        }
-        baseHeight = centerPoint.y;
-        GenerateNewWaypoint();
+        droneBody = GetComponent<Rigidbody>();
+        if (droneBody == null)
+            droneBody = gameObject.AddComponent<Rigidbody>();
+
+        droneBody.useGravity = true;
+        droneBody.linearDamping = 0.5f;
+        droneBody.angularDamping = 3f;
+
+        anchorPoint = flightAnchor != null ?
+            flightAnchor.position + Vector3.up * minAltitude : transform.position;
+
+        baseAltitude = anchorPoint.y;
+        CreateNewTarget();
     }
+
     void FixedUpdate()
     {
-        NavigateToWaypoint();
-        AvoidObstacles();
-        ApplyDroneTilt();
-        CheckWaypointReached();
-        KeepInBounds();
+        FlyTowardsTarget();
+        RunAvoidanceScan();
+        ApplyBanking();
+        CheckTargetReached();
+        EnforceFlightBounds();
     }
-    void NavigateToWaypoint()
+
+    void FlyTowardsTarget()
     {
-        Vector3 directionToWaypoint = (currentWaypoint - transform.position).normalized;
-        Vector3 moveDirection = directionToWaypoint;
-        float speedMultiplier = aggressiveFlying ? 1.5f : 1f;
-        if (rb.linearVelocity.magnitude < cruiseSpeed * 0.5f)
+        Vector3 dir = (targetPoint - transform.position).normalized;
+        float speedBoost = isAggressive ? 1.5f : 1f;
+
+        if (droneBody.linearVelocity.magnitude < baseSpeed * 0.5f)
+            speedBoost *= 2f;
+
+        droneBody.AddForce(dir * thrustPower * speedBoost * droneBody.mass, ForceMode.Force);
+
+        if (droneBody.linearVelocity.magnitude > speedCap)
+            droneBody.linearVelocity = droneBody.linearVelocity.normalized * speedCap;
+
+        Vector3 flatVel = new Vector3(droneBody.linearVelocity.x, 0, droneBody.linearVelocity.z);
+        if (flatVel.magnitude > 0.1f)
         {
-            speedMultiplier *= 2f;
-        }
-        rb.AddForce(moveDirection * acceleration * speedMultiplier * rb.mass, ForceMode.Force);
-        if (rb.linearVelocity.magnitude > maxSpeed)
-        {
-            rb.linearVelocity = rb.linearVelocity.normalized * maxSpeed;
-        }
-        Vector3 horizontalVelocity = new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
-        if (horizontalVelocity.magnitude > 0.1f)
-        {
-            Quaternion targetRotation = Quaternion.LookRotation(horizontalVelocity);
-            Quaternion newRotation = Quaternion.Slerp(rb.rotation, targetRotation, Time.fixedDeltaTime * rotationSpeed);
-            rb.MoveRotation(newRotation);
+            Quaternion targetRot = Quaternion.LookRotation(flatVel);
+            droneBody.MoveRotation(
+                Quaternion.Slerp(droneBody.rotation, targetRot, Time.fixedDeltaTime * turnRate));
         }
     }
-    void AvoidObstacles()
+
+    void RunAvoidanceScan()
     {
-        Vector3 avoidanceDirection = Vector3.zero;
-        int obstaclesDetected = 0;
-        bool closeObstacle = false;
-        for (int i = 0; i < numRays; i++)
+        Vector3 evadeDir = Vector3.zero;
+        int hits = 0;
+        bool dangerClose = false;
+
+        for (int i = 0; i < rayCount; i++)
         {
-            float angle = i * (360f / numRays);
-            Vector3 direction = Quaternion.Euler(0, angle, 0) * transform.forward;
-            RaycastHit hit;
-            if (Physics.Raycast(transform.position, direction, out hit, detectionDistance, obstacleLayer))
+            float angle = i * (360f / rayCount);
+            Vector3 dir = Quaternion.Euler(0, angle, 0) * transform.forward;
+
+            if (Physics.Raycast(transform.position, dir, out RaycastHit hit, scanDistance, collisionMask))
             {
-                if (hit.collider.transform != plane)
+                if (hit.collider.transform != flightAnchor)
                 {
-                    Vector3 awayFromObstacle = transform.position - hit.point;
-                    float weight = 1f - (hit.distance / detectionDistance);
+                    Vector3 away = transform.position - hit.point;
+                    float weight = 1f - (hit.distance / scanDistance);
 
-
-                    if (hit.distance < detectionDistance * 0.5f)
+                    if (hit.distance < scanDistance * 0.5f)
                     {
-                        awayFromObstacle.y += 2f;
-                        closeObstacle = true;
+                        away.y += 2f;
+                        dangerClose = true;
                     }
-                    avoidanceDirection += awayFromObstacle.normalized * weight;
-                    obstaclesDetected++;
-                    Debug.DrawRay(transform.position, direction * hit.distance, Color.red);
+
+                    evadeDir += away.normalized * weight;
+                    hits++;
                 }
             }
-            else
-            {
-                Debug.DrawRay(transform.position, direction * detectionDistance, Color.green);
-            }
         }
-        RaycastHit upHit, downHit;
-        if (Physics.Raycast(transform.position, Vector3.up, out upHit, detectionDistance * 0.5f, obstacleLayer))
+
+        if (hits > 0)
         {
-            avoidanceDirection += Vector3.down * 2f;
-        }
-        if (Physics.Raycast(transform.position, Vector3.down, out downHit, detectionDistance * 0.5f, obstacleLayer))
-        {
-            if (downHit.collider.transform != plane)
-            {
-                avoidanceDirection += Vector3.up * 2f;
-            }
-        }
-        if (obstaclesDetected > 0)
-        {
-            avoidanceDirection = avoidanceDirection.normalized;
-            float forceMultiplier = closeObstacle ? 2f : 1f;
-            rb.AddForce(avoidanceDirection * avoidanceForce * forceMultiplier * rb.mass, ForceMode.Force);
-            if (closeObstacle || obstaclesDetected > 3)
-            {
-                GenerateNewWaypoint();
-            }
+            evadeDir.Normalize();
+            float multiplier = dangerClose ? 2f : 1f;
+
+            droneBody.AddForce(
+                evadeDir * evadeStrength * multiplier * droneBody.mass,
+                ForceMode.Force);
+
+            if (dangerClose || hits > 3)
+                CreateNewTarget();
         }
     }
-    void ApplyDroneTilt()
+
+    void ApplyBanking()
     {
-        Vector3 horizontalVelocity = new Vector3(rb.linearVelocity.x, 0, rb.linearVelocity.z);
-        if (horizontalVelocity.magnitude > 0.1f)
+        Vector3 flatVel = new Vector3(droneBody.linearVelocity.x, 0, droneBody.linearVelocity.z);
+
+        if (flatVel.magnitude > 0.1f)
         {
-            Vector3 right = transform.right;
-            Vector3 forward = transform.forward;
-            float forwardTilt = Vector3.Dot(horizontalVelocity.normalized, forward) * tiltAmount;
-            float rightTilt = Vector3.Dot(horizontalVelocity.normalized, right) * tiltAmount;
-            Quaternion baseTilt = Quaternion.Euler(-forwardTilt, transform.eulerAngles.y, rightTilt);
-            rb.MoveRotation(Quaternion.Slerp(rb.rotation, baseTilt, Time.fixedDeltaTime * rotationSpeed));
-        }
-        else
-        {
-            Quaternion levelRotation = Quaternion.Euler(0, transform.eulerAngles.y, 0);
-            rb.MoveRotation(Quaternion.Slerp(rb.rotation, levelRotation, Time.fixedDeltaTime * rotationSpeed));
+            float forwardTilt = Vector3.Dot(flatVel.normalized, transform.forward) * bankingAngle;
+            float sideTilt = Vector3.Dot(flatVel.normalized, transform.right) * bankingAngle;
+
+            Quaternion tilt = Quaternion.Euler(-forwardTilt, transform.eulerAngles.y, sideTilt);
+            droneBody.MoveRotation(
+                Quaternion.Slerp(droneBody.rotation, tilt, Time.fixedDeltaTime * turnRate));
         }
     }
-    void CheckWaypointReached()
+
+    void CheckTargetReached()
     {
-        float distance = Vector3.Distance(transform.position, currentWaypoint);
-        bool reachedWaypoint = distance < waypointReachDistance && Time.time > nextWaypointTime;
-        bool stuckOrSlow = rb.linearVelocity.magnitude < 1f && Time.time > nextWaypointTime + 2f;
-        if (reachedWaypoint || stuckOrSlow)
-        {
-            GenerateNewWaypoint();
-        }
-        if (distance < waypointReachDistance * 0.5f)
-        {
-            GenerateNewWaypoint();
-        }
+        float dist = Vector3.Distance(transform.position, targetPoint);
+        bool arrived = dist < waypointRadius && Time.time > nextTargetTime;
+        bool stalled = droneBody.linearVelocity.magnitude < 1f &&
+                       Time.time > nextTargetTime + 2f;
+
+        if (arrived || stalled || dist < waypointRadius * 0.5f)
+            CreateNewTarget();
     }
-    void GenerateNewWaypoint()
+
+    void CreateNewTarget()
     {
-        Vector2 randomCircle = Random.insideUnitCircle * flightRadius;
-        float randomHeight;
-        if (Random.value < heightChangeFrequency)
-        {
-            randomHeight = Random.Range(minHeight, maxHeight);
-        }
-        else
-        {
-            float currentRelativeHeight = transform.position.y - baseHeight;
-            randomHeight = Mathf.Clamp(currentRelativeHeight + Random.Range(-2f, 2f), minHeight, maxHeight);
-        }
-        currentWaypoint = centerPoint + new Vector3(randomCircle.x, randomHeight - baseHeight, randomCircle.y);
-        nextWaypointTime = Time.time + newWaypointDelay;
+        Vector2 circle = Random.insideUnitCircle * zoneRadius;
+
+        float newHeight = Random.value < altitudeVariationChance ?
+            Random.Range(minAltitude, maxAltitude) :
+            Mathf.Clamp(transform.position.y - baseAltitude + Random.Range(-2f, 2f),
+                        minAltitude, maxAltitude);
+
+        targetPoint = anchorPoint +
+                      new Vector3(circle.x, newHeight - baseAltitude, circle.y);
+
+        nextTargetTime = Time.time + waypointCooldown;
     }
-    void KeepInBounds()
+
+    void EnforceFlightBounds()
     {
-        float distanceFromCenter = Vector3.Distance(new Vector3(transform.position.x, 0, transform.position.z),
-                                                     new Vector3(centerPoint.x, 0, centerPoint.z));
-        if (distanceFromCenter > flightRadius)
+        float dist = Vector3.Distance(
+            new Vector3(transform.position.x, 0, transform.position.z),
+            new Vector3(anchorPoint.x, 0, anchorPoint.z));
+
+        if (dist > zoneRadius)
         {
-            Vector3 directionToCenter = (centerPoint - transform.position).normalized;
-            directionToCenter.y = 0;
-            rb.AddForce(directionToCenter * acceleration * rb.mass * 2f, ForceMode.Force);
+            Vector3 toCenter = (anchorPoint - transform.position).normalized;
+            toCenter.y = 0;
+            droneBody.AddForce(toCenter * thrustPower * droneBody.mass * 2f);
         }
-        if (transform.position.y < baseHeight + minHeight - 1f)
-        {
-            rb.AddForce(Vector3.up * rb.mass * 5f, ForceMode.Force);
-        }
-        else if (transform.position.y > baseHeight + maxHeight + 1f)
-        {
-            rb.AddForce(Vector3.down * rb.mass * 3f, ForceMode.Force);
-        }
-    }
-    void OnDrawGizmos()
-    {
-        Gizmos.color = Color.cyan;
-        Vector3 center = plane != null ? plane.position : centerPoint;
-        Gizmos.DrawWireSphere(center + Vector3.up * minHeight, flightRadius);
-        Gizmos.DrawWireSphere(center + Vector3.up * maxHeight, flightRadius);
-        if (Application.isPlaying)
-        {
-            Gizmos.color = Color.yellow;
-            Gizmos.DrawWireSphere(currentWaypoint, waypointReachDistance);
-            Gizmos.DrawLine(transform.position, currentWaypoint);
-        }
+
+        if (transform.position.y < baseAltitude + minAltitude - 1f)
+            droneBody.AddForce(Vector3.up * droneBody.mass * 5f);
+        else if (transform.position.y > baseAltitude + maxAltitude + 1f)
+            droneBody.AddForce(Vector3.down * droneBody.mass * 3f);
     }
 }
