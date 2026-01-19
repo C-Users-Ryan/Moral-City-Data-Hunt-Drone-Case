@@ -1,0 +1,13 @@
+fileFormatVersion: 2
+guid: d02efcb1fcae0b348964aee73d1c2fe9
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - cornerMarkerPrefab: {fileID: 3296936099636939764, guid: 30664b8dfa996864c85be43029a8a2df, type: 3}
+  - playerHead: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

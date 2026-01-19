@@ -6,8 +6,11 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/SampleScene.unity
-    guid: 99c9720ab356a0642a771bea13969a05
+    path: Assets/Scenes/Low-Fi-Prototype.unity
+    guid: 6c38e8961e86285449922dc21ce5e54a
   m_configObjects:
+    Unity.XR.Oculus.Settings: {fileID: 11400000, guid: c08d4f92b103c3246a84a294b07e324e, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 8bf016234da57884bbc7b1bcab0fb8df, type: 2}
+    com.unity.xr.openxr.settings4: {fileID: 11400000, guid: f53ef699537a2724c8ff0a48dd737678, type: 2}
   m_UseUCBPForAssetBundles: 0
