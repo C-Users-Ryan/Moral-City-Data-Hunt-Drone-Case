@@ -2223,7 +2223,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3083321833
+  GlobalObjectIdHash: 1551411445
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -4960,8 +4960,6 @@ MonoBehaviour:
       active: 0
       enableObjects:
       - {fileID: 61790653}
-      - {fileID: 2107710295}
-      - {fileID: 141504404}
       disableObjects:
       - {fileID: 191599291}
       wasApplied: 0
@@ -4970,8 +4968,6 @@ MonoBehaviour:
       active: 0
       enableObjects:
       - {fileID: 1592800370}
-      - {fileID: 1259777250}
-      - {fileID: 969510464}
       disableObjects:
       - {fileID: 191599291}
       wasApplied: 0
@@ -8545,7 +8541,7 @@ Transform:
   m_GameObject: {fileID: 1592800370}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.011, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
