@@ -38,39 +38,58 @@ public class InspectorCaseController : MonoBehaviour
         [Header("Case Info")]
         public string caseName;
 
-        [Header("Case Start")]
-        public bool startCase;
+        [Header("Case Start Objects")]
         public List<GameObject> startEnableObjects;
 
         [Header("Options")]
         public CaseOption optionA;
         public CaseOption optionB;
 
-        [HideInInspector] public bool startApplied;
+        [HideInInspector] public bool wasEntered;
     }
 
-    [Header("Cases")]
+    [Header("Cases (Stages)")]
     public List<Case> cases = new List<Case>();
 
     // -------------------------------
-    // UNITY
+    // STAGE CONTROL
     // -------------------------------
 
-    void Update()
-    {
-        HandleGlobalStart();
+    private int currentCaseIndex = -1;
 
-        foreach (var c in cases)
-        {
-            HandleCase(c);
-        }
+    void Start()
+    {
+        ApplyGlobalStart();
     }
 
     // -------------------------------
-    // GLOBAL START LOGIC
+    // BUTTON API
     // -------------------------------
 
-    void HandleGlobalStart()
+    public void AdvanceCase()
+    {
+        if (currentCaseIndex >= cases.Count - 1)
+            return;
+
+        currentCaseIndex++;
+        EnterCase(cases[currentCaseIndex]);
+    }
+
+    public void SelectOptionA()
+    {
+        ApplyOption(cases[currentCaseIndex], true);
+    }
+
+    public void SelectOptionB()
+    {
+        ApplyOption(cases[currentCaseIndex], false);
+    }
+
+    // -------------------------------
+    // GLOBAL START
+    // -------------------------------
+
+    void ApplyGlobalStart()
     {
         if (!start || startApplied) return;
 
@@ -81,44 +100,37 @@ public class InspectorCaseController : MonoBehaviour
     }
 
     // -------------------------------
-    // CASE LOGIC
+    // CASE FLOW
     // -------------------------------
 
-    void HandleCase(Case c)
+    void EnterCase(Case c)
     {
-        if (!c.startCase) return;
+        if (c.wasEntered) return;
 
-        // Apply case start objects ONCE
-        if (!c.startApplied)
-        {
-            foreach (var obj in c.startEnableObjects)
-                if (obj) obj.SetActive(true);
+        foreach (var obj in c.startEnableObjects)
+            if (obj) obj.SetActive(true);
 
-            c.startApplied = true;
-        }
-
-        // Enforce single option active
-        if (c.optionA.active && c.optionB.active)
-            c.optionB.active = false;
-
-        // Reset apply state for switching
-        if (c.optionA.active)
-            c.optionB.wasApplied = false;
-
-        if (c.optionB.active)
-            c.optionA.wasApplied = false;
-
-        // Apply option logic
-        ApplyOption(c.optionA);
-        ApplyOption(c.optionB);
+        c.wasEntered = true;
     }
 
-    void ApplyOption(CaseOption option)
+    void ApplyOption(Case c, bool optionA)
     {
-        // Only apply once when option becomes active
-        if (!option.active || option.wasApplied)
+        CaseOption chosen = optionA ? c.optionA : c.optionB;
+        CaseOption other = optionA ? c.optionB : c.optionA;
+
+        // rigid: only once
+        if (chosen.wasApplied)
             return;
 
+        // enforce single option
+        other.active = false;
+        chosen.active = true;
+
+        ApplyOptionEffects(chosen);
+    }
+
+    void ApplyOptionEffects(CaseOption option)
+    {
         foreach (var obj in option.enableObjects)
             if (obj) obj.SetActive(true);
 
