@@ -6,28 +6,69 @@ public class PlayerSideChooser : MonoBehaviour
     [Header("Case Controller")]
     public InspectorCaseController caseController;
 
-    [Header("Voting Zones (Trigger Colliders)")]
+    [Header("Voting Zones")]
     public Collider voteZoneA;
     public Collider voteZoneB;
 
-    [Header("Player")]
-    public string playerTag = "Player";
+    [Header("XR Player (Quest Camera Rig)")]
+    public Transform xrRig; // XR Origin OR Main Camera
 
     [Header("Voting Settings")]
     public float countdownTime = 5f;
 
-    private bool playerInZoneA = false;
-    private bool playerInZoneB = false;
-    private bool votingInProgress = false;
+    // -----------------------------
+    // DEBUG (VISIBLE IN INSPECTOR)
+    // -----------------------------
+    [Header("DEBUG STATUS")]
+    public bool debugStartVote;
+    public bool votingInProgress;
+    public bool playerInZoneA;
+    public bool playerInZoneB;
+
+    private bool lastDebugToggle;
 
     // ------------------------------------------------
-    // START VOTING (CALL THIS FROM BUTTON / EVENT)
+    void Update()
+    {
+        // --- LIVE POSITION CHECK (VR SAFE) ---
+        CheckPlayerZone();
+
+        // Inspector button toggle
+        if (debugStartVote && !lastDebugToggle)
+        {
+            debugStartVote = false;
+            StartVote();
+        }
+
+        lastDebugToggle = debugStartVote;
+    }
+
+    // ------------------------------------------------
+    // CHECK WHICH ZONE PLAYER IS IN
+    // ------------------------------------------------
+    void CheckPlayerZone()
+    {
+        if (xrRig == null)
+            return;
+
+        Vector3 playerPosition = xrRig.position;
+
+        playerInZoneA = voteZoneA.bounds.Contains(playerPosition);
+        playerInZoneB = voteZoneB.bounds.Contains(playerPosition);
+    }
+
+    // ------------------------------------------------
+    // START VOTE
     // ------------------------------------------------
     public void StartVote()
     {
         if (votingInProgress)
+        {
+            Debug.Log("Vote already running.");
             return;
+        }
 
+        Debug.Log("START VOTE CALLED");
         StartCoroutine(VotingRoutine());
     }
 
@@ -59,6 +100,8 @@ public class PlayerSideChooser : MonoBehaviour
     // ------------------------------------------------
     void DecideVote()
     {
+        Debug.Log($"Decision Check | A:{playerInZoneA}  B:{playerInZoneB}");
+
         if (caseController == null)
         {
             Debug.LogWarning("No InspectorCaseController assigned!");
@@ -77,34 +120,7 @@ public class PlayerSideChooser : MonoBehaviour
         }
         else
         {
-            Debug.Log("No valid vote (player in none or both zones)");
+            Debug.LogWarning("No valid vote (none or both zones)");
         }
-    }
-
-    // ------------------------------------------------
-    // TRIGGER DETECTION
-    // ------------------------------------------------
-    private void OnTriggerEnter(Collider other)
-    {
-        if (!other.CompareTag(playerTag))
-            return;
-
-        if (other.bounds.Intersects(voteZoneA.bounds))
-            playerInZoneA = true;
-
-        if (other.bounds.Intersects(voteZoneB.bounds))
-            playerInZoneB = true;
-    }
-
-    private void OnTriggerExit(Collider other)
-    {
-        if (!other.CompareTag(playerTag))
-            return;
-
-        if (!other.bounds.Intersects(voteZoneA.bounds))
-            playerInZoneA = false;
-
-        if (!other.bounds.Intersects(voteZoneB.bounds))
-            playerInZoneB = false;
     }
 }
