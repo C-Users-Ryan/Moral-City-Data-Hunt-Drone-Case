@@ -46,6 +46,7 @@ public class InspectorCaseController : MonoBehaviour
         public CaseOption optionB;
 
         [HideInInspector] public bool wasEntered;
+        [HideInInspector] public bool optionChosen; // prevents choosing twice
     }
 
     [Header("Cases (Stages)")]
@@ -66,6 +67,9 @@ public class InspectorCaseController : MonoBehaviour
     // BUTTON API
     // -------------------------------
 
+    /// <summary>
+    /// Move to next case (hook to Next button)
+    /// </summary>
     public void AdvanceCase()
     {
         if (currentCaseIndex >= cases.Count - 1)
@@ -75,14 +79,43 @@ public class InspectorCaseController : MonoBehaviour
         EnterCase(cases[currentCaseIndex]);
     }
 
-    public void SelectOptionA()
+    /// <summary>
+    /// UI Button function
+    /// 0 = Option A
+    /// 1 = Option B
+    /// </summary>
+    public void SelectOption(int optionIndex)
     {
-        ApplyOption(cases[currentCaseIndex], true);
-    }
+        if (currentCaseIndex < 0 || currentCaseIndex >= cases.Count)
+        {
+            Debug.LogWarning("No active case.");
+            return;
+        }
 
-    public void SelectOptionB()
-    {
-        ApplyOption(cases[currentCaseIndex], false);
+        Case currentCase = cases[currentCaseIndex];
+
+        if (currentCase.optionChosen)
+        {
+            Debug.Log("Option already chosen for this case.");
+            return;
+        }
+
+        switch (optionIndex)
+        {
+            case 0:
+                ApplyOption(currentCase, true);
+                break;
+
+            case 1:
+                ApplyOption(currentCase, false);
+                break;
+
+            default:
+                Debug.LogWarning("Invalid option index.");
+                return;
+        }
+
+        currentCase.optionChosen = true;
     }
 
     // -------------------------------
@@ -105,7 +138,7 @@ public class InspectorCaseController : MonoBehaviour
 
     void EnterCase(Case c)
     {
-        if (c.wasEntered) return;
+        if (c == null || c.wasEntered) return;
 
         foreach (var obj in c.startEnableObjects)
             if (obj) obj.SetActive(true);
@@ -115,16 +148,24 @@ public class InspectorCaseController : MonoBehaviour
 
     void ApplyOption(Case c, bool optionA)
     {
+        if (c == null) return;
+
         CaseOption chosen = optionA ? c.optionA : c.optionB;
         CaseOption other = optionA ? c.optionB : c.optionA;
 
-        // rigid: only once
+        if (chosen == null)
+        {
+            Debug.LogWarning("Chosen option missing.");
+            return;
+        }
+
         if (chosen.wasApplied)
             return;
 
-        // enforce single option
-        other.active = false;
+        // enforce single option state
         chosen.active = true;
+        if (other != null)
+            other.active = false;
 
         ApplyOptionEffects(chosen);
     }

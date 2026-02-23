@@ -4910,7 +4910,6 @@ MonoBehaviour:
   - {fileID: 1883494525}
   cases:
   - caseName: 'Government vs business '
-    startCase: 0
     startEnableObjects:
     - {fileID: 1883494525}
     optionA:
@@ -4929,9 +4928,8 @@ MonoBehaviour:
       disableObjects:
       - {fileID: 1883494525}
       wasApplied: 0
-    startApplied: 0
+    wasEntered: 0
   - caseName: 'follow me drone vs drone licence '
-    startCase: 0
     startEnableObjects:
     - {fileID: 2141720236}
     optionA:
@@ -4950,9 +4948,8 @@ MonoBehaviour:
       disableObjects:
       - {fileID: 2141720236}
       wasApplied: 0
-    startApplied: 0
+    wasEntered: 0
   - caseName: efficiency vs nature
-    startCase: 0
     startEnableObjects:
     - {fileID: 191599291}
     optionA:
@@ -4971,7 +4968,7 @@ MonoBehaviour:
       disableObjects:
       - {fileID: 191599291}
       wasApplied: 0
-    startApplied: 0
+    wasEntered: 0
 --- !u!4 &1042326472
 Transform:
   m_ObjectHideFlags: 0
