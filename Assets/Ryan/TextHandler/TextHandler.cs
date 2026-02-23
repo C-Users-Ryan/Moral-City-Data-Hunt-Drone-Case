@@ -1,26 +1,31 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class TextHandler : MonoBehaviour
 {
-    [SerializeField] private Camera mainCamera;
+    [SerializeField] private Transform centerEye;
 
     void Start()
     {
-        // If no camera is assigned, try to find the main camera
-        if (mainCamera == null)
+        // Auto-find Quest headset camera
+        if (centerEye == null)
         {
-            mainCamera = Camera.main;
+            var eye = GameObject.Find("CenterEyeAnchor");
+
+            if (eye != null)
+                centerEye = eye.transform;
+            else
+                Debug.LogWarning("CenterEyeAnchor not found!");
         }
     }
 
-    void Update()
+    void LateUpdate()
     {
-        // Ensure the canvas is always facing the camera
-        if (mainCamera != null)
-        {
-            // Look at the camera's position
-            transform.LookAt(transform.position + mainCamera.transform.rotation * Vector3.forward,
-                             mainCamera.transform.rotation * Vector3.up);
-        }
+        if (centerEye == null) return;
+
+        // Direction from text → headset
+        Vector3 direction = transform.position - centerEye.position;
+
+        // Face the player
+        transform.rotation = Quaternion.LookRotation(direction);
     }
 }
