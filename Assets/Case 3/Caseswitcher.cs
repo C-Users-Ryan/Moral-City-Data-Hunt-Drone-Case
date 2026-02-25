@@ -11,6 +11,10 @@ public class InspectorCaseController : MonoBehaviour
     public bool start;
     public List<GameObject> startEnableObjects;
 
+    [Header("Restart Settings")]
+    public List<GameObject> objectsToDisableOnRestart; // objects to deactivate on restart
+    public bool loopCases = true; // automatically loop back to case 1 after last case
+
     private bool startApplied = false;
 
     // -------------------------------
@@ -64,7 +68,7 @@ public class InspectorCaseController : MonoBehaviour
     }
 
     // -------------------------------
-    // BUTTON API
+    // BUTTON / API FUNCTIONS
     // -------------------------------
 
     /// <summary>
@@ -72,10 +76,25 @@ public class InspectorCaseController : MonoBehaviour
     /// </summary>
     public void AdvanceCase()
     {
-        if (currentCaseIndex >= cases.Count - 1)
-            return;
+        if (cases.Count == 0) return;
 
         currentCaseIndex++;
+
+        // Check if we exceeded the last case
+        if (currentCaseIndex >= cases.Count)
+        {
+            if (loopCases)
+            {
+                Debug.Log("Looping cases: restarting all cases");
+                RestartAllCases();
+            }
+            else
+            {
+                Debug.Log("No more cases available.");
+                return;
+            }
+        }
+
         EnterCase(cases[currentCaseIndex]);
     }
 
@@ -179,5 +198,40 @@ public class InspectorCaseController : MonoBehaviour
             if (obj) obj.SetActive(false);
 
         option.wasApplied = true;
+    }
+
+    // -------------------------------
+    // RESTART / LOOP FUNCTIONS
+    // -------------------------------
+
+    /// <summary>
+    /// Fully restart all cases and options
+    /// </summary>
+    public void RestartAllCases()
+    {
+        Debug.Log("Restarting all cases...");
+
+        // Reset each case and option
+        foreach (var c in cases)
+        {
+            c.wasEntered = false;
+            c.optionChosen = false;
+
+            if (c.optionA != null)
+                c.optionA.wasApplied = false;
+
+            if (c.optionB != null)
+                c.optionB.wasApplied = false;
+        }
+
+        // Deactivate objects that were enabled during gameplay
+        foreach (var obj in objectsToDisableOnRestart)
+            if (obj) obj.SetActive(false);
+
+        // Reset current case index
+        currentCaseIndex = 0;
+
+        // Enter first case
+        EnterCase(cases[currentCaseIndex]);
     }
 }
