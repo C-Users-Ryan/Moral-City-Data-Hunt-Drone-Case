@@ -5360,7 +5360,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3083321833
+  GlobalObjectIdHash: 1139798839
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -11220,7 +11220,7 @@ MonoBehaviour:
       optionName: follow me drone
       active: 0
       enableObjects:
-      - {fileID: 878802812}
+      - {fileID: 479204504}
       disableObjects:
       - {fileID: 2141720236}
       wasApplied: 0
@@ -11228,7 +11228,7 @@ MonoBehaviour:
       optionName: drone licence
       active: 0
       enableObjects:
-      - {fileID: 479204504}
+      - {fileID: 878802812}
       disableObjects:
       - {fileID: 2141720236}
       wasApplied: 0
